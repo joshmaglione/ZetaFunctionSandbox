@@ -12,7 +12,7 @@ from sage.all import var as _var
 from sage.rings.integer import Integer as _Sage_int
 from Zeta.smurf import SMURF as _Zeta_smurf
 
-def ThinZeta_An(word, leq_char="0", verbose=False, variable='t'):
+def ThinZeta_An(word, leq_char="0", verbose=False, variable='t', sub=True):
     # Make sure we understand the input.
     if isinstance(word, int) or isinstance(word, _Sage_int):
         word = str(word.binary()[1:])[::-1]
@@ -64,14 +64,18 @@ def ThinZeta_An(word, leq_char="0", verbose=False, variable='t'):
     R = _PolynomialRing(_QQ, 'x', n)
 
     # Define substitution.
-    t = _var(variable)
-    if n > 1:
-        subs = {_var('x' + str(i)) : t for i in range(n)}
+    if sub:
+        t = _var(variable)
+        if n > 1:
+            subs = {_var('x' + str(i)) : t for i in range(n)}
+        else:
+            subs = {_var('x') : t}
+        # Apply Zeta
+        sm = _Zeta_smurf.from_polyhedron(P, R)
+        Z = sm.evaluate().subs(subs).factor().simplify()
     else:
-        subs = {_var('x') : t}
-
-    # Apply Zeta
-    sm = _Zeta_smurf.from_polyhedron(P, R)
-    Z = sm.evaluate().subs(subs).factor().simplify()
+        # Apply Zeta
+        sm = _Zeta_smurf.from_polyhedron(P, R)
+        Z = sm.evaluate().factor().simplify()
 
     return Z
