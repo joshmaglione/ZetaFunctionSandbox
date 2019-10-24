@@ -76,11 +76,7 @@ def _simplify(numer, denom):
     return sim_numer, sim_denom
 
 
-# Given a generating function Z, print the string that gets Z into a nicer 
-# format than the simplified Sage version of Z. (We cannot return Z in this 
-# nicer format because Sage will reduce and factor back to how it likes its 
-# generating functions.)
-def CleanZeta(Z, numerator_factor=False):
+def _good_gen_func_format(Z, num_fact=False):
     # Clean up Z
     f = Z.simplify().factor().simplify()
     n, d = f.numerator_denominator()
@@ -105,7 +101,7 @@ def CleanZeta(Z, numerator_factor=False):
                 return "(%s)" % (tup[0])
             else:
                 return "(%s)^%s" % (tup[0], tup[1])
-    if numerator_factor:
+    if num_fact:
         if n == 1:
             old_numer = ""
         else:
@@ -121,7 +117,61 @@ def CleanZeta(Z, numerator_factor=False):
     new_denom = reduce(cat, map(exponentiate, clean_denom), "")
     if new_denom == "":
         new_denom = "1"
+    return (new_numer, new_denom)
+
+# Given a string of an expression, make the exponents TeX-friendly. 
+def _TeX_exp(s):
+    k = 0
+    while k < len(s):
+        if s[k] == "^":
+            i = s.find("*", k)
+            j = s.find(" ", k)
+            l = s.find("(", k+1)
+            inds = filter(lambda x: x != -1, [i, j, l])
+            if inds == []:
+                s = s[:k+1] + "{" + s[k+1:] + "}"
+                k = len(s)
+            else:
+                m = min(inds)
+                s = s[:k+1] + "{" + s[k+1:m] + "}" + s[m:]
+                k = m + 2
+        else:
+            k += 1
+    return s
+
+# Given a generating function Z, print the string that gets Z into a nicer 
+# format than the simplified Sage version of Z. (We cannot return Z in this 
+# nicer format because Sage will reduce and factor back to how it likes its 
+# generating functions.)
+def CleanZeta(Z, numerator_factor=False):
+    new_numer, new_denom = _good_gen_func_format(Z, num_fact=numerator_factor)
     print "Numerator:\n%s\n\nDenominator:\n%s" % (new_numer, new_denom)
+    return new_numer, new_denom
+
+# Given a generating function, return a LaTeX string that prints the given 
+# rational function as an align environment. 
+def TeX_Zeta(Z, numerator_factor=False, LHS="", numbered=False):
+    new_numer, new_denom = _good_gen_func_format(Z, num_fact=numerator_factor)
+    denom_str = _TeX_exp(new_denom.replace("*", " "))
+    numer_str = _TeX_exp(str(new_numer).replace("*", " "))
+    varbs = Z.variables()
+    if numbered:
+        latex_str = "\\begin{align}\n"
+    else:
+        latex_str = "\\begin{align*}\n"
+    if LHS == "":
+        latex_str += "  Z("
+    else:
+        latex_str += "  " + LHS + "("
+    for x in varbs:
+        latex_str += str(x) + ", "
+    latex_str = latex_str[:-2] + ") &= \\dfrac{" 
+    latex_str += numer_str + "}{" + denom_str + "}"
+    if numbered:
+        latex_str += "\n\\end{align}\n"
+    else:
+        latex_str += "\n\\end{align*}\n"
+    return latex_str
 
 
 # Given a generating function Z, decide if it satisfies a functional equation 
