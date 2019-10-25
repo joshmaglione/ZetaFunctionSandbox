@@ -76,7 +76,7 @@ def _simplify(numer, denom):
     return sim_numer, sim_denom
 
 
-def _good_gen_func_format(Z, num_fact=False):
+def _good_gen_func_format(Z, num_fact=False, positive=True):
     # Clean up Z
     f = Z.simplify().factor().simplify()
     n, d = f.numerator_denominator()
@@ -117,6 +117,9 @@ def _good_gen_func_format(Z, num_fact=False):
     new_denom = reduce(cat, map(exponentiate, clean_denom), "")
     if new_denom == "":
         new_denom = "1"
+    if positive and not isinstance(new_numer, str):
+        if new_numer.subs({x : 0 for x in Z.variables()}) < 0:
+            new_numer *= -1
     return (new_numer, new_denom)
 
 # Given a string of an expression, make the exponents TeX-friendly. 
