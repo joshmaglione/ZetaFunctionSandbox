@@ -56,7 +56,7 @@ def _build_ineqs(word, leq_char):
     return relations
 
 def _eval_relations(relations, verbose, variable, sub):
-    n = relations.ncols() - 1
+    n = len(relations[0]) - 1
 
     # In case the user wants to verify the matrix.
     if verbose:
