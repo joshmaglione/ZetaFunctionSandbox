@@ -231,8 +231,9 @@ def _TeX_exp(s):
         if s[k] == "^":
             i = s.find("*", k)
             j = s.find(" ", k)
-            l = s.find("(", k+1)
-            inds = filter(lambda x: x != -1, [i, j, l])
+            a = s.find("(", k+1)
+            b = s.find(")", k+1)
+            inds = filter(lambda x: x != -1, [i, j, a, b])
             if inds == []:
                 s = s[:k+1] + "{" + s[k+1:] + "}"
                 k = len(s)
@@ -315,7 +316,7 @@ class RatFunc():
         self._fdenom = d
         return self
 
-    def LaTeX(self, formatted=True, LHS="", numbered=False):
+    def LaTeX(self, formatted=True, LHS="", numbered=False, chars_per_line=70):
         # Type checking
         if not isinstance(formatted, bool):
             raise TypeError("Expected 'formatted' to be a boolean.")
@@ -346,7 +347,21 @@ class RatFunc():
         for x in self._vars:
             latex_str += str(x) + ", "
         latex_str = latex_str[:-2] + ") &= \\dfrac{" 
-        latex_str += numer_str + "}{" + denom_str + "}"
+        
+        # Determine if we need to break it up into multiple lines.
+        lines = len(numer_str.replace(" ", ""))//chars_per_line
+        ind = 0
+        for k in range(lines - 1):
+            p_ind = numer_str[ind:(k+1)*chars_per_line].rfind("+")
+            m_ind = numer_str[ind:(k+1)*chars_per_line].rfind("-")
+            if p_ind > m_ind:
+                latex_str += numer_str[ind:ind+p_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
+                ind += p_ind+2
+            else:
+                latex_str += numer_str[ind:ind+m_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
+                ind += m_ind
+        latex_str += numer_str[ind:] + "}{" + denom_str + "}"
+
         if numbered:
             latex_str += "\n\\end{align}\n"
         else:
