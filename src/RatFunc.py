@@ -172,9 +172,6 @@ def _good_format_denom(Z, denom, num_fact=False):
             old_numer = ""
         else:
             old_numer = "(%s)" % (_format_poly(n, Z.variables()))
-        new_numer = old_numer + reduce(cat, map(exponentiate, clean_num), "")
-        if new_numer == "":
-            new_numer = "1"
     else:
         new_numer = _format_poly(_expand(n), Z.variables())
     clean_denom = sorted(clean_denom, key=lambda X: P(X[0]).total_degree())
@@ -302,6 +299,10 @@ class RatFunc():
         f = (self._numer / self._denom).simplify().factor().simplify()
         return RatFunc(f)
 
+    def plain(self):
+        print _format_print(self._numer, self._denom)
+        pass
+
     def format(self, numerator_factor=False, denominator=None):
         # Type checking
         if not isinstance(numerator_factor, bool):
@@ -312,7 +313,7 @@ class RatFunc():
             n, d = _good_format_denom(self, denominator, num_fact=numerator_factor)
         self._fnumer = n
         self._fdenom = d
-        print _format_print(n, d)
+        return self
 
     def LaTeX(self, formatted=True, LHS="", numbered=False):
         # Type checking
@@ -324,7 +325,11 @@ class RatFunc():
             raise TypeError("Expected 'numbered' to be a boolean.")
 
         if formatted:
-            num, den = _good_gen_func_format(self)
+            if self._fnumer == None:
+                num, den = _good_gen_func_format(self)
+            else:
+                num = self._fnumer
+                den = self._fdenom
         else:
             num = self._numer
             den = self._denom
