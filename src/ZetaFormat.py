@@ -76,7 +76,7 @@ def _simplify(numer, denom):
     return sim_numer, sim_denom
 
 
-def _good_gen_func_format(Z, num_fact=False, positive=True):
+def _good_gen_func_format(Z, num_fact=False, positive=True, denom=None):
     # Clean up Z
     f = Z.simplify().factor().simplify()
     n, d = f.numerator_denominator()
@@ -146,8 +146,8 @@ def _TeX_exp(s):
 # format than the simplified Sage version of Z. (We cannot return Z in this 
 # nicer format because Sage will reduce and factor back to how it likes its 
 # generating functions.)
-def CleanZeta(Z, numerator_factor=False):
-    new_numer, new_denom = _good_gen_func_format(Z, num_fact=numerator_factor)
+def CleanZeta(Z, numerator_factor=False, denominator=None):
+    new_numer, new_denom = _good_gen_func_format(Z, num_fact=numerator_factor, denom=denominator)
     print "Numerator:\n%s\n\nDenominator:\n%s" % (new_numer, new_denom)
     return new_numer, new_denom
 
