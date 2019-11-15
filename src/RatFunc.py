@@ -4,6 +4,8 @@
 #   Distributed under MIT License
 #
 
+
+from sage.all import ceil as _ceil
 from sage.all import expand as _expand
 from sage.all import PolynomialRing as _PolynomialRing
 from sage.all import symbolic_expression as _symb
@@ -287,8 +289,14 @@ class RatFunc():
     def numerator(self):
         return self._numer
 
+    def numerator_format(self):
+        return self._fnumer
+
     def denominator(self):
         return self._denom
+
+    def denominator_format(self):
+        return self._fdenom
 
     def variables(self):
         return self._vars
@@ -316,7 +324,15 @@ class RatFunc():
         self._fdenom = d
         return self
 
-    def LaTeX(self, formatted=True, LHS="", numbered=False, chars_per_line=70):
+    def reduced(self, X):
+        # Make sure X makes sense 
+        if not X in self._vars:
+            raise ValueError("Expected variable to occur in rational function.")
+        F = self._numer.subs({X : 1})/self._denom.subs({X : 1})
+        R = RatFunc(F.simplify().factor().simplify())
+        return R
+
+    def LaTeX(self, formatted=True, LHS="", numbered=False, chars_per_line=60):
         # Type checking
         if not isinstance(formatted, bool):
             raise TypeError("Expected 'formatted' to be a boolean.")
@@ -349,7 +365,7 @@ class RatFunc():
         latex_str = latex_str[:-2] + ") &= \\dfrac{" 
         
         # Determine if we need to break it up into multiple lines.
-        lines = len(numer_str.replace(" ", ""))//chars_per_line
+        lines = _ceil(len(numer_str)/chars_per_line)
         ind = 0
         for k in range(lines - 1):
             p_ind = numer_str[ind:(k+1)*chars_per_line].rfind("+")
