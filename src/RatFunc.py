@@ -231,18 +231,11 @@ def _TeX_exp(s):
     k = 0
     while k < len(s):
         if s[k] == "^":
-            i = s.find("*", k)
-            j = s.find(" ", k)
-            a = s.find("(", k+1)
-            b = s.find(")", k+1)
-            inds = filter(lambda x: x != -1, [i, j, a, b])
-            if inds == []:
-                s = s[:k+1] + "{" + s[k+1:] + "}"
-                k = len(s)
-            else:
-                m = min(inds)
-                s = s[:k+1] + "{" + s[k+1:m] + "}" + s[m:]
-                k = m + 2
+            j = k + 1
+            while s[j].isdigit():
+                j += 1
+            s = s[:k+1] + "{" + s[k+1:j] + "}" + s[j:]
+            k = j + 2
         else:
             k += 1
     return s
@@ -285,6 +278,17 @@ class RatFunc():
             num = self._fnumer
             den = self._fdenom
         return _format_print(num, den)
+
+    def __add__(self, other):
+        F = RatFunc(self._numer / self._denom + other._numer / other._denom)
+        return F
+
+    def __eq__(self, other):
+        return bool(self._numer / self._denom == other._numer / other._denom)
+
+    def __mult__(self, other):
+        F = RatFunc(self._numer / self._denom * other._numer / other._denom)
+        return F
 
     def numerator(self):
         return self._numer
@@ -332,7 +336,7 @@ class RatFunc():
         R = RatFunc(F.simplify().factor().simplify())
         return R
 
-    def LaTeX(self, formatted=True, LHS="", numbered=False, chars_per_line=60):
+    def latex(self, formatted=True, LHS="", numbered=False, chars_per_line=60):
         # Type checking
         if not isinstance(formatted, bool):
             raise TypeError("Expected 'formatted' to be a boolean.")
