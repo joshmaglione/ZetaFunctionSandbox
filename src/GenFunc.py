@@ -114,10 +114,10 @@ def _simplify(numer, denom):
                 diff = sim_numer[i][1] - sim_denom[j][1]
                 if diff >= 0: # at least as many terms in numer
                     sim_numer[i] = [sim_numer[i][0], diff]
-                    sim_denom[j] = [const**(sim_denom[j][1] - diff), 1]
+                    sim_denom[j] = [const**(sim_denom[j][1]), 1]
                 else: # more terms in denom
                     sim_denom[j] = [sim_denom[j][0], -diff]
-                    sim_numer[i] = [const**(sim_numer[i][1] - diff), 1]
+                    sim_numer[i] = [const**(sim_numer[i][1]), 1]
             j += 1
         i += 1
 
@@ -140,6 +140,7 @@ def _simplify(numer, denom):
         numer_final = [[rat_fact.numerator(), 1]] + numer_final
     if rat_fact.denominator() != 1:
         denom_final = [[rat_fact.denominator(), 1]] + denom_final
+
     return numer_final, denom_final
 
 
@@ -166,7 +167,7 @@ def _good_format(Z, denom=None, num_fact=False):
     # Some setup
     mult = lambda x, y: x*y
     cat = lambda x, y: x + y
-    P = _PolynomialRing(_QQ, Z.variables())
+    P = _PolynomialRing(_ZZ, varbs, len(varbs))
     deg_key = lambda X: P(X[0]).total_degree()
 
     # Given a tuple of the form (f, e), return a formatted string for the 
@@ -182,9 +183,10 @@ def _good_format(Z, denom=None, num_fact=False):
 
     # pre-condition if prescribed denominator
     if denom != None:
-        numer = (denom / d).simplify().factor().simplify()
+        numer = (denom / den).simplify().factor().simplify()
         if not numer in _QQ:
-            assert numer in _PolynomialRing(_QQ, numer.variables()), "Expected denominator to divide given denominator."
+            assert numer in _PolynomialRing(_QQ, numer.variables()), \
+                "Expected denominator to divide given denominator."
         num *= numer
         den = denom
         assert Z == num/den, "Something went wrong!"
@@ -206,26 +208,32 @@ def _good_format(Z, denom=None, num_fact=False):
     # Merge all the numerator factors
     merge = lambda F: reduce(mult, map(lambda x: (_SR(x[0]))**x[1], F), 1)
     new_fact = merge(clean_nums)
+
     assert Z == (num*new_fact) / merge(clean_denom), "Something went wrong!"
     # If we are given a denominator, then divide out the numerator. Something 
     # must factor. 
     if denom != None:
-        if new_fact != 1:
-            k = 0
-            cont = True
-            while k < len(clean_denom) and cont:
-                f = clean_denom[k][0] / new_fact
-                if f in P:
-                    T = _is_fin_geo(P(f), Z.variables())
-                    if T[0] and T[2] == 1:
-                        clean_denom[k][1] -= 1
-                        clean_denom += [[T[1], 1]]
-                        cont = False
-                k += 1
-            if not cont:
-                ValueError("Something unexpected happened.")
-            else:
-                new_fact = 1
+        if P(new_fact).total_degree() != 0:
+            new_factors = reduce(cat, [[f[0]]*f[1] for f in clean_nums], [])
+            print(new_factors)
+            for i in range(len(new_factors)):
+                f = new_factors[i]
+                k = 0
+                cont = True
+                while k < len(clean_denom) and cont:
+                    f = clean_denom[k][0] / fact
+                    if f in P and clean_denom[k][0] > 0:
+                        T = _is_fin_geo(P(f), varbs)
+                        print(T)
+                        if T[0] and T[2] == 1:
+                            clean_denom[k][1] -= 1
+                            clean_denom += [[T[1], 1]]
+                            cont = False
+                    k += 1
+                if cont:
+                    ValueError("Something unexpected happened.")
+                else:
+                    new_factors[i] = 1
 
     # Factor and clean the numerator
     if num_fact:
@@ -277,7 +285,7 @@ def _TeX_output(F,
 
     if formatted:
         if F._fnumer == None:
-            num, den = _good_gen_func_format(F)
+            num, den = _good_format(F)
         else:
             num = F._fnumer
             den = F._fdenom
