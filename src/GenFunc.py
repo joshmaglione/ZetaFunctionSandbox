@@ -9,6 +9,7 @@ from sage.all import ceil as _ceil
 from sage.all import expand as _expand
 from sage.all import PolynomialRing as _PolynomialRing
 from sage.all import symbolic_expression as _symb
+from sage.all import var as _var
 from sage.all import SR as _SR
 from sage.all import QQ as _QQ
 from sage.all import ZZ as _ZZ
@@ -88,9 +89,9 @@ def _decide_if_same(f, g):
 def _simplify_factors(fact_list):
     f = reduce(lambda x, y: x*y[0]**y[1], fact_list, 1)
     try:
-        return list(f.factor_list())
+        return list(_SR(f).factor_list())
     except AttributeError:
-        return list([f, 1])
+        return list([tuple([f, 1])])
 
 # Given a numerator and a denominator, we apply two simplifications to the 
 # data. First, we group together the same factors in the numerator. Second we 
@@ -100,7 +101,7 @@ def _simplify_factors(fact_list):
 def _simplify(numer, denom):
     # First group similar terms together in the numerator and denominator
     sim_numer = _simplify_factors(numer)
-    sim_denom = _simplify_factors(denom)
+    sim_denom = list(denom)
 
     # Reduce just the non-rational number factors of the numerator and 
     # denominator together
@@ -113,13 +114,13 @@ def _simplify(numer, denom):
                 diff = sim_numer[i][1] - sim_denom[j][1]
                 if diff >= 0: # at least as many terms in numer
                     sim_numer[i] = [sim_numer[i][0], diff]
-                    sim_denom[j] = [const**(-diff), 1]
+                    sim_denom[j] = [const**(sim_denom[j][1] - diff), 1]
                 else: # more terms in denom
                     sim_denom[j] = [sim_denom[j][0], -diff]
-                    sim_numer[i] = [const**diff, 1]
+                    sim_numer[i] = [const**(sim_numer[i][1] - diff), 1]
             j += 1
         i += 1
-    
+
     # Split off the polynomial factors
     is_poly = lambda f: not f[0] in _QQ
     numer_final = filter(is_poly, sim_numer)
@@ -155,109 +156,100 @@ def _simplify_to_finite_geo(d_facts, varbs):
     num_facts, denom_facts = zip(*converted_facts)
     return _simplify(num_facts, denom_facts)
 
-
-def _good_format_denom(Z, denom, num_fact=False):
+def _good_format(Z, denom=None, num_fact=False):
     # Clean up Z
     Z = Z.simplify()
-    n = Z.numerator()
-    d = Z.denominator()
-
-    numer = (denom / d).simplify().factor().simplify()
-    if not numer in _QQ:
-        assert numer in _PolynomialRing(_QQ, numer.variables()), "Expected denominator to divide given denominator."
-    n *= numer
-    d = denom
-    d_facts = d.factor_list()
+    num = Z.numerator()
+    den = Z.denominator()
     varbs = Z.variables()
-    clean_num1, inter_denom = _simplify_to_finite_geo(d_facts, varbs)
-    clean_num2, clean_denom = _simplify_to_finite_geo(inter_denom, varbs)
+
+    # Some setup
     mult = lambda x, y: x*y
-    P = _PolynomialRing(_ZZ, Z.variables(), len(Z.variables()))
-
-    # Divide out the numerator. Something must factor. 
-    new_fact1 = reduce(mult, map(lambda x: P(x[0])**(x[1]), clean_num1), 1)
-    new_fact2 = reduce(mult, map(lambda x: P(x[0])**(x[1]), clean_num2), 1)
-    new_fact = new_fact1 * new_fact2
-    if new_fact != 1:
-        k = 0
-        cont = True
-        while k < len(clean_denom) and cont:
-            f = clean_denom[k][0] / new_fact
-            if f in P:
-                T = _is_fin_geo(P(f), Z.variables())
-                if T[0] and T[2] == 1:
-                    clean_denom[k][1] -= 1
-                    clean_denom += [[T[1], 1]]
-                    cont = False
-            k += 1
-    
-    # Build strings
     cat = lambda x, y: x + y
-    def exponentiate(tup):
+    P = _PolynomialRing(_QQ, Z.variables())
+    deg_key = lambda X: P(X[0]).total_degree()
+
+    # Given a tuple of the form (f, e), return a formatted string for the 
+    # expression f^e.
+    def _expo(tup):
         if tup[1] == 0 or tup[0] == 1:
             return ""
         else:
             if tup[1] == 1:
-                return "(%s)" % (_format_poly(tup[0], Z.variables()))
+                return "(%s)" % (_format_poly(tup[0], varbs))
             else:
-                return "(%s)^%s" % (_format_poly(tup[0], Z.variables()), tup[1])
-    if num_fact:
-        if n == 1:
-            old_numer = ""
+                return "(%s)^%s" % (_format_poly(tup[0], varbs), tup[1])
+
+    # pre-condition if prescribed denominator
+    if denom != None:
+        numer = (denom / d).simplify().factor().simplify()
+        if not numer in _QQ:
+            assert numer in _PolynomialRing(_QQ, numer.variables()), "Expected denominator to divide given denominator."
+        num *= numer
+        den = denom
+        assert Z == num/den, "Something went wrong!"
+
+    # Clean up the denominator by bringing in any numerator factors to make 
+    # into a geometric series
+    clean_denom = den.factor_list()
+    clean_nums = [tuple([1, 0])]
+    more_facts = True
+    while more_facts:
+        clean_num1, clean_denom = _simplify_to_finite_geo(clean_denom, varbs)
+        if len(clean_num1) == 0:
+            more_facts = False
         else:
-            old_numer = "(%s)" % (_format_poly(n, Z.variables()))
-    else:
-        new_numer = _format_poly(_expand(n), Z.variables())
-    clean_denom = sorted(clean_denom, key=lambda X: P(X[0]).total_degree())
-    new_denom = reduce(cat, map(exponentiate, clean_denom), "")
-    return (new_numer.replace("*", ""), new_denom)
+            clean_nums += clean_num1
+            if clean_num1[0] in _QQ:
+                more_facts = False
 
-
-def _good_gen_func_format(Z, num_fact=False):
-    # Clean up Z
-    Z = Z.simplify()
-    n = Z.numerator()
-    d = Z.denominator()
-    d_facts = d.factor_list()
-
-    # A function to convert the factors in the denominator to fin geo quotients
-    def convert(fact):
-        data = _is_fin_geo(fact[0], Z.variables())
-        if data[0]:
-            return ([data[2], fact[1]], [data[1], fact[1]])
-        return ([1, 1], fact)
-    converted_facts = list(map(convert, d_facts))
-    # Get the new data
-    num_facts, denom_facts = zip(*converted_facts)
-    clean_num, clean_denom = _simplify(num_facts, denom_facts)
-    # Build strings
-    cat = lambda x, y: x + y
-    def exponentiate(tup):
-        if tup[1] == 0 or tup[0] == 1:
-            return ""
-        else:
-            if tup[1] == 1:
-                return "(%s)" % (_format_poly(tup[0], Z.variables()))
+    # Merge all the numerator factors
+    merge = lambda F: reduce(mult, map(lambda x: (_SR(x[0]))**x[1], F), 1)
+    new_fact = merge(clean_nums)
+    assert Z == (num*new_fact) / merge(clean_denom), "Something went wrong!"
+    # If we are given a denominator, then divide out the numerator. Something 
+    # must factor. 
+    if denom != None:
+        if new_fact != 1:
+            k = 0
+            cont = True
+            while k < len(clean_denom) and cont:
+                f = clean_denom[k][0] / new_fact
+                if f in P:
+                    T = _is_fin_geo(P(f), Z.variables())
+                    if T[0] and T[2] == 1:
+                        clean_denom[k][1] -= 1
+                        clean_denom += [[T[1], 1]]
+                        cont = False
+                k += 1
+            if not cont:
+                ValueError("Something unexpected happened.")
             else:
-                return "(%s)^%s" % (_format_poly(tup[0], Z.variables()), tup[1])
-    if num_fact:
-        if n == 1:
-            old_numer = ""
-        else:
-            old_numer = "(%s)" % (_format_poly(n, Z.variables()))
-        new_numer = old_numer + reduce(cat, map(exponentiate, clean_num), "")
-        if new_numer == "":
-            new_numer = "1"
-    else:
-        P = _PolynomialRing(_QQ, Z.variables(), len(Z.variables()))
-        mult = lambda x, y: x*y
-        new_numer = reduce(mult, map(lambda x: P(x[0])**(x[1]), clean_num), 1)
-        new_numer = _format_poly(_expand(n * new_numer), Z.variables())
-    new_denom = reduce(cat, map(exponentiate, clean_denom), "")
-    if new_denom == "":
-        new_denom = "1"
-    return (new_numer.replace("*", ""), new_denom)
+                new_fact = 1
 
+    # Factor and clean the numerator
+    if num_fact:
+        numer_facts = _SR(num*new_fact).factor_list()
+        numer_polys =  map(lambda x: tuple([P(x[0]), x[1]]), numer_facts)
+        numer_sorted = sorted(numer_polys, key=deg_key)
+    else:
+        numer_sorted = [tuple([_expand(num*new_fact), 1])]
+
+    # Build strings for the numerator and denominator
+    new_numer = reduce(cat, map(_expo, numer_sorted), "")
+    denom_sorted = sorted(clean_denom, key=deg_key)
+    new_denom = reduce(cat, map(_expo, denom_sorted), "")
+
+    # Remove obsolete parentheses
+    if len(numer_sorted) == 1:
+        new_numer = new_numer.replace("(", "").replace(")", "")
+    if len(denom_sorted) == 1:
+        new_denom = new_denom.replace("(", "").replace(")", "")
+
+    # Make sure we did things correctly. 
+    assert Z == merge(numer_sorted)/merge(denom_sorted), "Something went wrong!"
+
+    return (new_numer.replace("*", ""), new_denom.replace("*", ""))
 
 # Given a string of an expression, make the exponents LaTeX-friendly. 
 def _TeX_exp(s):
@@ -374,8 +366,15 @@ class GenFunc():
             other = other._numer / other._denom
         return GenFunc(self._numer / self._denom + other)
 
+    def __div__(self, other):
+        if isinstance(other, GenFunc):
+            other = other._numer / other._denom
+        return GenFunc(self._numer / self._denom * other**-1)
+
     def __eq__(self, other):
-        return bool(self._numer / self._denom == other._numer / other._denom)
+        if isinstance(other, GenFunc): 
+            other = other._numer / other._denom
+        return bool(self._numer / self._denom == other)
 
     def __mul__(self, other):
         if isinstance(other, GenFunc):
@@ -395,10 +394,8 @@ class GenFunc():
         # Type checking
         if not isinstance(numerator_factor, bool):
             raise TypeError("Expected 'numerator_factor' to be a boolean.")
-        if denominator == None:
-            n, d = _good_gen_func_format(self, num_fact=numerator_factor)
-        else:
-            n, d = _good_format_denom(self, denominator, num_fact=numerator_factor)
+        
+        n, d = _good_format(self, denom=denominator, num_fact=numerator_factor)
         self._fnumer = n
         self._fdenom = d
         return self
@@ -426,8 +423,7 @@ class GenFunc():
         return self._fnumer
 
     def plain(self):
-        print _format_print(self._numer, self._denom)
-        pass
+        return GenFunc(self._numer, self._denom)
 
     def reduced(self, X):
         # Make sure X makes sense 
@@ -441,7 +437,19 @@ class GenFunc():
         f = (self._numer / self._denom).simplify().factor().simplify()
         return GenFunc(f)
 
-    # def subs(self, *args):
+    def subs(self, **kwargs):
+        input_vars = map(lambda x: _var(x), kwargs.keys())
+        if not all(map(lambda x: x in list(self._vars), input_vars)):
+            raise ValueError("Unknown variable given.")
+        cleaned_dict = {x : kwargs[str(x)] for x in input_vars}
+        red_n = self._numer.subs(cleaned_dict)
+        red_d = self._denom.subs(cleaned_dict)
+        if red_d == 0:
+            raise ValueError("Division by 0.")
+        return GenFunc(red_n, red_d)
+
+    def symbolic(self):
+        return self._numer / self._denom
 
     def variables(self):
         return self._vars
