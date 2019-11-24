@@ -9,6 +9,7 @@ from sage.all import ceil as _ceil
 from sage.all import expand as _expand
 from sage.all import PolynomialRing as _PolynomialRing
 from sage.all import symbolic_expression as _symb
+from sage.all import SR as _SR
 from sage.all import QQ as _QQ
 from sage.all import ZZ as _ZZ
 from os import popen as _popen
@@ -73,46 +74,76 @@ def _is_fin_geo(f, varbs):
         return (True, 1 - t**n, 1 - t)
     return (False, 0, 0)
 
+# Given two polynomials f, g, with f not equal to 0, decide if f/g is a 
+# rational number by returning its rational quotient if f/g is rational. 
+# Otherwise, 0 is returned.
+def _decide_if_same(f, g):
+    assert f != 0
+    quo = f/g
+    if quo in _QQ:
+        return _QQ(quo)
+    return 0
+
+# Given a list of factors, simplify them into like factors.
+def _simplify_factors(fact_list):
+    f = reduce(lambda x, y: x*y[0]**y[1], fact_list, 1)
+    try:
+        return list(f.factor_list())
+    except AttributeError:
+        return list([f, 1])
+
 # Given a numerator and a denominator, we apply two simplifications to the 
 # data. First, we group together the same factors in the numerator. Second we 
 # reduce factors that occur in both the numerator and the denominator. Here, we 
 # do not require that the factors be exactly the same---only the same up to a 
 # rational number. 
 def _simplify(numer, denom):
-    # First group similar terms together in the numerator
-    i = 0 
-    sim_numer = list(numer)
-    while i < len(sim_numer):
-        j = i + 1
-        while j < len(sim_numer):
-            if sim_numer[i][0] == sim_numer[j][0]:
-                sim_numer[i][1] += sim_numer[j][1]
-                sim_numer[j] = [1, 0]
-            j += 1
-        i += 1
-    # Reduce the numerator and denominator together
+    # First group similar terms together in the numerator and denominator
+    sim_numer = _simplify_factors(numer)
+    sim_denom = _simplify_factors(denom)
+
+    # Reduce just the non-rational number factors of the numerator and 
+    # denominator together
     i = 0
-    sim_denom = list(denom)
-    while i < len(sim_numer):
+    while i < len(sim_numer) and not sim_numer[i][0] in _QQ:
         j = 0
-        while j < len(sim_denom):
-            quo = sim_numer[i][0]/sim_denom[j][0]
-            if quo in _QQ:
-                const = quo
-            else:
-                const = 0
+        while j < len(sim_denom) and not sim_denom[j][0] in _QQ:
+            const = _decide_if_same(sim_numer[i][0], sim_denom[j][0])
             if const != 0:
                 diff = sim_numer[i][1] - sim_denom[j][1]
-                if diff >= 0:
-                    sim_numer[i] = [(const**diff)*sim_numer[i][0], diff]
-                    sim_denom[j] = [1, 0]
-                else:
-                    sim_denom[j] = [(const**(-diff))*sim_denom[j][0], -diff]
-                    sim_numer[i] = [1, 0]
+                if diff >= 0: # at least as many terms in numer
+                    sim_numer[i] = [sim_numer[i][0], diff]
+                    sim_denom[j] = [const**(-diff), 1]
+                else: # more terms in denom
+                    sim_denom[j] = [sim_denom[j][0], -diff]
+                    sim_numer[i] = [const**diff, 1]
             j += 1
         i += 1
-    return sim_numer, sim_denom
+    
+    # Split off the polynomial factors
+    is_poly = lambda f: not f[0] in _QQ
+    numer_final = filter(is_poly, sim_numer)
+    denom_final = filter(is_poly, sim_denom)
 
+    # Split off the rational factors
+    is_rat = lambda f: f[0] in _QQ
+    numer_rat = filter(is_rat, sim_numer)
+    denom_rat = filter(is_rat, sim_denom)
+
+    # Merge the rationals into one factor
+    mult = lambda x, y: x*y[0]**y[1]
+    rat_fact = _QQ(reduce(mult, numer_rat, 1) / reduce(mult, denom_rat, 1))
+
+    # Incorporate rational factor
+    if rat_fact.numerator() != 1:
+        numer_final = [[rat_fact.numerator(), 1]] + numer_final
+    if rat_fact.denominator() != 1:
+        denom_final = [[rat_fact.denominator(), 1]] + denom_final
+    return numer_final, denom_final
+
+
+# Given the factor list of a polynomial and its variables, return a fraction of 
+# geometric series.
 def _simplify_to_finite_geo(d_facts, varbs):
     def convert(fact):
         data = _is_fin_geo(fact[0], varbs)
@@ -123,6 +154,7 @@ def _simplify_to_finite_geo(d_facts, varbs):
     # Get the new data
     num_facts, denom_facts = zip(*converted_facts)
     return _simplify(num_facts, denom_facts)
+
 
 def _good_format_denom(Z, denom, num_fact=False):
     # Clean up Z
@@ -226,19 +258,74 @@ def _good_gen_func_format(Z, num_fact=False):
         new_denom = "1"
     return (new_numer.replace("*", ""), new_denom)
 
+
 # Given a string of an expression, make the exponents LaTeX-friendly. 
 def _TeX_exp(s):
     k = 0
     while k < len(s):
         if s[k] == "^":
             j = k + 1
-            while s[j].isdigit():
+            while j < len(s) and s[j].isdigit():
                 j += 1
-            s = s[:k+1] + "{" + s[k+1:j] + "}" + s[j:]
-            k = j + 2
+            if j - k > 2:
+                s = s[:k+1] + "{" + s[k+1:j] + "}" + s[j:]
+                k = j + 2
+            else:
+                k = j
         else:
             k += 1
     return s
+
+def _TeX_output(F, 
+    formatted=True, 
+    LHS="", 
+    numbered=False, 
+    chars_per_line=60, 
+    expression=False):
+
+    if formatted:
+        if F._fnumer == None:
+            num, den = _good_gen_func_format(F)
+        else:
+            num = F._fnumer
+            den = F._fdenom
+    else:
+        num = F._numer
+        den = F._denom
+    denom_str = _TeX_exp(str(den).replace("*", " "))
+    numer_str = _TeX_exp(str(num).replace("*", " "))
+    if numbered:
+        latex_str = "\\begin{align}\n"
+    else:
+        latex_str = "\\begin{align*}\n"
+    if LHS == "":
+        latex_str += "  Z("
+    else:
+        latex_str += "  " + LHS + "("
+    for x in F._vars:
+        latex_str += str(x) + ", "
+    latex_str = latex_str[:-2] + ") &= \\dfrac{" 
+    
+    # Determine if we need to break it up into multiple lines.
+    lines = _ceil(len(numer_str)/chars_per_line)
+    ind = 0
+    for k in range(lines - 1):
+        p_ind = numer_str[ind:(k+1)*chars_per_line].rfind("+")
+        m_ind = numer_str[ind:(k+1)*chars_per_line].rfind("-")
+        if p_ind > m_ind:
+            latex_str += numer_str[ind:ind+p_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
+            ind += p_ind+2
+        else:
+            latex_str += numer_str[ind:ind+m_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
+            ind += m_ind
+    latex_str += numer_str[ind:] + "}{" + denom_str + "}"
+
+    if numbered:
+        latex_str += "\n\\end{align}\n"
+    else:
+        latex_str += "\n\\end{align*}\n"
+    return latex_str
+
 
 # A nicely formatted printing function. Inputs can be symbolic or strings.
 def _format_print(num, den):
@@ -254,7 +341,7 @@ def _format_print(num, den):
 
 
 # My class of rational functions
-class RatFunc():
+class GenFunc():
     def __init__(self, *args):
         if len(args) == 0 or len(args) > 2:
             raise TypeError("Expected either 1 or 2 inputs.")
@@ -280,21 +367,20 @@ class RatFunc():
         return _format_print(num, den)
 
     def __add__(self, other):
-        F = RatFunc(self._numer / self._denom + other._numer / other._denom)
-        return F
+        if isinstance(other, GenFunc):
+            if self._fdenom != None and self._fdenom == other._fdenom:
+                F = GenFunc(self._numer/self._denom + other._numer/other._denom)
+                return F.format(denominator=_SR(self._fdenom.replace(')(', ')*(')))
+            other = other._numer / other._denom
+        return GenFunc(self._numer / self._denom + other)
 
     def __eq__(self, other):
         return bool(self._numer / self._denom == other._numer / other._denom)
 
-    def __mult__(self, other):
-        F = RatFunc(self._numer / self._denom * other._numer / other._denom)
-        return F
-
-    def numerator(self):
-        return self._numer
-
-    def numerator_format(self):
-        return self._fnumer
+    def __mul__(self, other):
+        if isinstance(other, GenFunc):
+            other = other._numer / other._denom
+        return GenFunc(self._numer / self._denom * other)
 
     def denominator(self):
         return self._denom
@@ -302,19 +388,8 @@ class RatFunc():
     def denominator_format(self):
         return self._fdenom
 
-    def variables(self):
-        return self._vars
-
     def factor(self):
-        return RatFunc(self._numer.factor(), self._denom.factor())
-
-    def simplify(self):
-        f = (self._numer / self._denom).simplify().factor().simplify()
-        return RatFunc(f)
-
-    def plain(self):
-        print _format_print(self._numer, self._denom)
-        pass
+        return GenFunc(self._numer.factor(), self._denom.factor())
 
     def format(self, numerator_factor=False, denominator=None):
         # Type checking
@@ -328,15 +403,7 @@ class RatFunc():
         self._fdenom = d
         return self
 
-    def reduced(self, X):
-        # Make sure X makes sense 
-        if not X in self._vars:
-            raise ValueError("Expected variable to occur in rational function.")
-        F = self._numer.subs({X : 1})/self._denom.subs({X : 1})
-        R = RatFunc(F.simplify().factor().simplify())
-        return R
-
-    def latex(self, formatted=True, LHS="", numbered=False, chars_per_line=60):
+    def latex(self, formatted=True, LHS="", numbered=False, chars_per_line=60, expression=False):
         # Type checking
         if not isinstance(formatted, bool):
             raise TypeError("Expected 'formatted' to be a boolean.")
@@ -345,45 +412,36 @@ class RatFunc():
         if not isinstance(numbered, bool):
             raise TypeError("Expected 'numbered' to be a boolean.")
 
-        if formatted:
-            if self._fnumer == None:
-                num, den = _good_gen_func_format(self)
-            else:
-                num = self._fnumer
-                den = self._fdenom
-        else:
-            num = self._numer
-            den = self._denom
-        denom_str = _TeX_exp(str(den).replace("*", " "))
-        numer_str = _TeX_exp(str(num).replace("*", " "))
-        if numbered:
-            latex_str = "\\begin{align}\n"
-        else:
-            latex_str = "\\begin{align*}\n"
-        if LHS == "":
-            latex_str += "  Z("
-        else:
-            latex_str += "  " + LHS + "("
-        for x in self._vars:
-            latex_str += str(x) + ", "
-        latex_str = latex_str[:-2] + ") &= \\dfrac{" 
-        
-        # Determine if we need to break it up into multiple lines.
-        lines = _ceil(len(numer_str)/chars_per_line)
-        ind = 0
-        for k in range(lines - 1):
-            p_ind = numer_str[ind:(k+1)*chars_per_line].rfind("+")
-            m_ind = numer_str[ind:(k+1)*chars_per_line].rfind("-")
-            if p_ind > m_ind:
-                latex_str += numer_str[ind:ind+p_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
-                ind += p_ind+2
-            else:
-                latex_str += numer_str[ind:ind+m_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
-                ind += m_ind
-        latex_str += numer_str[ind:] + "}{" + denom_str + "}"
+        return _TeX_output(self, 
+            formatted=formatted, 
+            LHS=LHS, 
+            numbered=numbered, 
+            chars_per_line=chars_per_line, 
+            expression=expression)
 
-        if numbered:
-            latex_str += "\n\\end{align}\n"
-        else:
-            latex_str += "\n\\end{align*}\n"
-        return latex_str
+    def numerator(self):
+        return self._numer
+
+    def numerator_format(self):
+        return self._fnumer
+
+    def plain(self):
+        print _format_print(self._numer, self._denom)
+        pass
+
+    def reduced(self, X):
+        # Make sure X makes sense 
+        if not X in self._vars:
+            raise ValueError("Expected variable to occur in rational function.")
+        F = self._numer.subs({X : 1})/self._denom.subs({X : 1})
+        R = GenFunc(F.simplify().factor().simplify())
+        return R
+
+    def simplify(self):
+        f = (self._numer / self._denom).simplify().factor().simplify()
+        return GenFunc(f)
+
+    # def subs(self, *args):
+
+    def variables(self):
+        return self._vars
