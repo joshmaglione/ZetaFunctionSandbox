@@ -4,8 +4,8 @@
 #   Distributed under MIT License
 #
 
-from RatFunc import _get_terms
-from RatFunc import RatFunc as _RatFunc
+from GenFunc import _get_terms
+from GenFunc import GenFunc as _GenFunc
 from sage.all import symbolic_expression as _symb
 from sage.all import RR as _RR
 from sage.all import PolynomialRing as _PolyRing
@@ -13,7 +13,7 @@ from sage.all import PolynomialRing as _PolyRing
 # Given a rational function Z, decide if it satisfies a functional equation 
 # and return the (potential) functional equation. 
 def FunctionalEquation(Z):
-    if isinstance(Z, _RatFunc):
+    if isinstance(Z, _GenFunc):
         Z = Z._numer/Z._denom
     v = Z.variables()
     subs = {x : x**-1 for x in v}
@@ -26,11 +26,11 @@ def FunctionalEquation(Z):
     return False, FE_clean
 
 # Given a rational function Z, return information about its nonnegative 
-# numerator. We require Z to be univariate and an instance of RatFunc. This 
+# numerator. We require Z to be univariate and an instance of GenFunc. This 
 # will help make things smoother.
 def NonnegativityData(Z):
-    if not isinstance(Z, _RatFunc):
-        raise TypeError("Expected a rational function (class RatFunc).")
+    if not isinstance(Z, _GenFunc):
+        raise TypeError("Expected a rational function (class GenFunc).")
     if len(Z._vars) > 1:
         raise ValueError("Expected a univariate rational function.")
     if Z._fnumer == None:

@@ -11,7 +11,7 @@ from sage.all import QQ as _QQ
 from sage.all import var as _var
 from sage.rings.integer import Integer as _Sage_int
 from Zeta.smurf import SMURF as _Zeta_smurf
-from RatFunc import RatFunc as _RatFunc
+from GenFunc import GenFunc as _GenFunc
 
 # Make sure we understand the input to the main functions.
 def _input_check(word, leq_char, verbose, variable, sub):
@@ -94,7 +94,7 @@ def ThinZeta_An(word, leq_char="0", verbose=False, variable='t', sub=True):
     
     _input_check(word, leq_char, verbose, variable, sub)
     relations = _build_ineqs(word, leq_char)
-    Z = _RatFunc(_eval_relations(relations, verbose, variable, sub))
+    Z = _GenFunc(_eval_relations(relations, verbose, variable, sub))
     if sub:
         stand_denom = 1
         X = _var(variable)
