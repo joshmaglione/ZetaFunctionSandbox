@@ -29,7 +29,7 @@ def _input_check(word, leq_char, verbose, variable, sub):
 
 # Given a word and a leq_char, construct the matrix whose rows give the 
 # inequalities for the Polyhedron function in Sage. 
-def _build_ineqs(word, leq_char):
+def _build_ineqs(word, leq_char, Dynkin="A"):
     # Initial values.
     n = len(word) + 1
     relations = []
@@ -48,11 +48,25 @@ def _build_ineqs(word, leq_char):
     if n > 1:
         for x in zip(word, range(1, n)):
             if x[0] == leq_char:
-                v = add_k_i(zero_vec, x[1], -1)
-                u = add_k_i(v, x[1] + 1, 1)
+                if Dynkin == "D" and x[1] == n-1:
+                    v = add_k_i(zero_vec, x[1] - 1, -1)
+                    u = add_k_i(v, x[1] + 1, 1)
+                elif Dynkin == "E" and x[1] == n-1: 
+                    v = add_k_i(zero_vec, 3, -1)
+                    u = add_k_i(v, x[1] + 1, 1)
+                else:
+                    v = add_k_i(zero_vec, x[1], -1)
+                    u = add_k_i(v, x[1] + 1, 1)
             else:
-                v = add_k_i(zero_vec, x[1], 1)
-                u = add_k_i(v, x[1] + 1, -1)
+                if Dynkin == "D" and x[1] == n-1:
+                    v = add_k_i(zero_vec, x[1] - 1, 1)
+                    u = add_k_i(v, x[1] + 1, -1)
+                elif Dynkin == "E" and x[1] == n-1: 
+                    v = add_k_i(zero_vec, 3, 1)
+                    u = add_k_i(v, x[1] + 1, -1)
+                else:
+                    v = add_k_i(zero_vec, x[1], 1)
+                    u = add_k_i(v, x[1] + 1, -1)
             relations.append(u)
     return relations
 
@@ -84,6 +98,17 @@ def _eval_relations(relations, verbose, variable, sub):
         Z = sm.evaluate().factor().simplify()
     return Z
 
+def _solve_and_wrap(rels, verb=False, varb='t', sub=True):
+    Z = _RatFunc(_eval_relations(rels, verb, varb, sub))
+    if sub:
+        stand_denom = 1
+        X = _var(varb)
+        for k in range(1, len(rels[0])):
+            stand_denom *= (1 - X**k)
+        return Z.format(denominator=stand_denom)
+    else:
+        return Z
+
 
 def ThinZeta_An(word, leq_char="0", verbose=False, variable='t', sub=True):
     # Make sure we understand the input.
@@ -94,15 +119,7 @@ def ThinZeta_An(word, leq_char="0", verbose=False, variable='t', sub=True):
     
     _input_check(word, leq_char, verbose, variable, sub)
     relations = _build_ineqs(word, leq_char)
-    Z = _RatFunc(_eval_relations(relations, verbose, variable, sub))
-    if sub:
-        stand_denom = 1
-        X = _var(variable)
-        for k in range(1, len(word) + 2):
-            stand_denom *= (1 - X**k)
-        return Z.format(denominator=stand_denom)
-    else:
-        return Z
+    return _solve_and_wrap(relations, verb=verbose, varb=variable, sub=sub)
 
 
 def ThinZeta_Dn(word, leq_char="0", verbose=False, variable='t', sub=True):
@@ -115,4 +132,21 @@ def ThinZeta_Dn(word, leq_char="0", verbose=False, variable='t', sub=True):
     if len(word) <= 2:
         return ThinZeta_An(word, leq_char=leq_char, verbose=verbose, variable=variable, sub=sub)
     _input_check(word, leq_char, verbose, variable, sub)
-    # Finish this! 
+    relations = _build_ineqs(word, leq_char, Dynkin="D")
+    return _solve_and_wrap(relations, verb=verbose, varb=variable, sub=sub)
+
+
+def ThinZeta_En(word, leq_char="0", verbose=False, variable='t', sub=True):
+    # Make sure we understand the input.
+    if isinstance(word, int) or isinstance(word, _Sage_int):
+        word = str(word.binary()[1:])[::-1]
+        if verbose:
+            print word
+    # If this should be type An instead, we use that function instead.
+    if len(word) <= 4:
+        return ThinZeta_An(word, leq_char=leq_char, verbose=verbose, variable=variable, sub=sub)
+    if len(word) > 7:
+        raise ValueError("Expected at most 7 edges for type E.")
+    _input_check(word, leq_char, verbose, variable, sub)
+    relations = _build_ineqs(word, leq_char, Dynkin="E")
+    return _solve_and_wrap(relations, verb=verbose, varb=variable, sub=sub)
