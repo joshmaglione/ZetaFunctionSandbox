@@ -9,3 +9,4 @@ from src.RatFunc import *
 from src.ThinReps import *
 from src.ZetaFormat import *
 from src.combinProps import *
+from src.MajDist import *

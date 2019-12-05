@@ -353,7 +353,7 @@ class RatFunc():
         denom_str = _TeX_exp(str(den).replace("*", " "))
         numer_str = _TeX_exp(str(num).replace("*", " "))
         if numbered:
-            latex_str = "\\begin{align}\n"
+            latex_str = "\\begin{equation}\\begin{aligned}\n"
         else:
             latex_str = "\\begin{align*}\n"
         if LHS == "":
@@ -379,7 +379,7 @@ class RatFunc():
         latex_str += numer_str[ind:] + "}{" + denom_str + "}"
 
         if numbered:
-            latex_str += "\n\\end{align}\n"
+            latex_str += "\n\\end{aligned}\\end{equation}\n"
         else:
             latex_str += "\n\\end{align*}\n"
         return latex_str
