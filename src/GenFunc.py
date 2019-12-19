@@ -249,7 +249,6 @@ def _clean_denom_data(denom, data):
         raise AssertionError("Something unexpected happened while formatting.")
 
 
-
 def _format(Z, denom=None, num_fact=False):
     # Clean up Z
     Z = Z.simplify()
@@ -304,6 +303,9 @@ def _format(Z, denom=None, num_fact=False):
             else:
                 return "(%s)^%s" % (_format_poly(tup[0], varbs), tup[1])
     
+    # Last sanity check
+    assert bool(merge(numer_clean) / merge(denom_facts) == Z), "Something went wrong with the formatting process at the end."
+
     # Format strings now
     if denom_str == None:
         denom_str = cat(map(_expo, sorted(denom_facts, key=deg_key)))
@@ -341,7 +343,7 @@ def _TeX_output(F,
 
     if formatted:
         if F._fnumer == None:
-            num, den = _good_format(F)
+            num, den = _format(F)
         else:
             num = F._fnumer
             den = F._fdenom
@@ -349,6 +351,8 @@ def _TeX_output(F,
         num = F._numer
         den = F._denom
     denom_str = _TeX_exp(str(den).replace("*", " "))
+    if len(denom_str) > chars_per_line:
+        print "Warning: length of denominator exceeds chars_per_line."
     numer_str = _TeX_exp(str(num).replace("*", " "))
     if numbered:
         latex_str = "\\begin{equation}\\begin{aligned}\n"
@@ -360,7 +364,8 @@ def _TeX_output(F,
         latex_str += "  " + LHS + "("
     for x in F._vars:
         latex_str += str(x) + ", "
-    latex_str = latex_str[:-2] + ") &= \\dfrac{" 
+    latex_str = latex_str[:-2] + ") &= "
+    express = "\\dfrac{" 
     
     # Determine if we need to break it up into multiple lines.
     lines = _ceil(len(numer_str)/chars_per_line)
@@ -369,12 +374,17 @@ def _TeX_output(F,
         p_ind = numer_str[ind:(k+1)*chars_per_line].rfind("+")
         m_ind = numer_str[ind:(k+1)*chars_per_line].rfind("-")
         if p_ind > m_ind:
-            latex_str += numer_str[ind:ind+p_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
+            express += numer_str[ind:ind+p_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
             ind += p_ind+2
         else:
-            latex_str += numer_str[ind:ind+m_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
+            express += numer_str[ind:ind+m_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
             ind += m_ind
-    latex_str += numer_str[ind:] + "}{" + denom_str + "}"
+    express += numer_str[ind:] + "}{" + denom_str + "}"
+
+    if expression:
+        return express
+    else:
+        latex_str += express
 
     if numbered:
         latex_str += "\n\\end{aligned}\\end{equation}\n"
@@ -396,7 +406,7 @@ def _format_print(num, den):
     return "%s%s\n%s\n%s%s" % (nspc, num, line, dspc, den)
 
 
-# My class of rational functions
+# My class of rational generating functions
 class GenFunc():
     def __init__(self, *args):
         if len(args) == 0 or len(args) > 2:
