@@ -84,8 +84,8 @@ def _is_fin_geo(f, varbs):
 # rational number by returning its rational quotient if f/g is rational. 
 # Otherwise, 0 is returned.
 def _decide_if_same(f, g):
-    assert f != 0
-    quo = f/g
+    assert f != 0 and g != 0
+    quo = (f/g).factor().simplify()
     if quo in _QQ:
         return _QQ(quo)
     return 0
@@ -226,7 +226,8 @@ def _find_factor(denom_facts, f, P):
 # numerator and denominator, clean up the data.
 def _clean_denom_data(denom, data):
     merge = lambda X: reduce(lambda x, y: x*y[0]**y[1], X, 1)
-    if bool(denom == merge(data[1])):
+    c = _decide_if_same(denom, merge(data[1]))
+    if c != 0 :
         return data
 
     # In this case, we know that the data does not match the denominator
