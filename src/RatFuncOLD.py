@@ -111,8 +111,10 @@ def _simplify(numer, denom):
                     sim_numer[i] = [1, 0]
             j += 1
         i += 1
-    return sim_numer, sim_denom
+    return [sim_numer, sim_denom]
 
+
+# Given factors and the variables associated to the polynomial...
 def _simplify_to_finite_geo(d_facts, varbs):
     def convert(fact):
         data = _is_fin_geo(fact[0], varbs)
@@ -123,6 +125,44 @@ def _simplify_to_finite_geo(d_facts, varbs):
     # Get the new data
     num_facts, denom_facts = zip(*converted_facts)
     return _simplify(num_facts, denom_facts)
+
+
+# Given a polynomial f, write it as 
+#   f = g * \prod_{i\in I} (1 - t^{a_i})/(1 - t^{b_i})
+def _product_of_fin_geo(f):
+    fl = f.factor_list()
+    varbs = f.variables()
+    check = lambda x, y: x*y[0]**y[1]
+    merge = lambda X: reduce(check, X, 1)
+    data = [[], []]
+    new_data = [[(1, 0)], fl]
+    while new_data[1] != data[1]:
+        data = [data[0] + new_data[0], new_data[1]]
+        new_data = _simplify_to_finite_geo(data[1], varbs)
+        print data
+        print new_data
+        print merge(data[1])/merge(data[0])
+        print merge(new_data[1])/merge(new_data[0])
+        assert bool(f == merge(new_data[1])/merge(new_data[0]))
+    return data
+
+
+
+def _format(Z, denom=None, num_fact=False):
+    # Clean up Z
+    Z = Z.simplify()
+    n = Z.numerator()
+    d = Z.denominator()
+
+    # If it's a string do not change it.
+    if isinstance(denom, str):
+        denom_str = denom
+        denom = _symb(denom)
+    else: 
+        denom_str = None
+    
+
+
 
 def _good_format_denom(Z, denom, num_fact=False):
     # Clean up Z
@@ -228,21 +268,18 @@ def _good_gen_func_format(Z, num_fact=False):
 
 # Given a string of an expression, make the exponents LaTeX-friendly. 
 def _TeX_exp(s):
+    s += " "
     k = 0
     while k < len(s):
         if s[k] == "^":
-            i = s.find("*", k)
-            j = s.find(" ", k)
-            a = s.find("(", k+1)
-            b = s.find(")", k+1)
-            inds = filter(lambda x: x != -1, [i, j, a, b])
-            if inds == []:
-                s = s[:k+1] + "{" + s[k+1:] + "}"
-                k = len(s)
-            else:
-                m = min(inds)
+            m = k+1
+            while s[m].isdigit():
+                m += 1
+            if m - k > 2:
                 s = s[:k+1] + "{" + s[k+1:m] + "}" + s[m:]
                 k = m + 2
+            else:
+                k = m
         else:
             k += 1
     return s

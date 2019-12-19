@@ -99,7 +99,7 @@ def _eval_relations(relations, verbose, variable, sub):
     return Z
 
 def _solve_and_wrap(rels, verb=False, varb='t', sub=True):
-    Z = _RatFunc(_eval_relations(rels, verb, varb, sub))
+    Z = _GenFunc(_eval_relations(rels, verb, varb, sub))
     if sub:
         stand_denom = 1
         X = _var(varb)
