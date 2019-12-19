@@ -9,7 +9,9 @@ from sage.all import Polyhedron as _Polyhedron
 from sage.all import PolynomialRing as _PolynomialRing
 from sage.all import QQ as _QQ
 from sage.all import var as _var
+from sage.all import SR as _SR
 from Zeta.smurf import SMURF as _Zeta_smurf
+from GenFunc import GenFunc as _genfunc
 
 # compute the major distribution of a poset P
 def MajorDistribution(P):
@@ -17,7 +19,7 @@ def MajorDistribution(P):
     if not isinstance(P, FinitePoset):
         # An error here means we cannot interpret input as a poset
         P = FinitePoset(P)
-    n = len(P)
+    n = P.cardinality()
     relations = []
     zero_vec = tuple([0 for i in range(n + 1)]) 
 
@@ -30,7 +32,7 @@ def MajorDistribution(P):
     # nonnegative relations.
     relations += [add_k_i(zero_vec, i, 1) for i in range(1, n + 1)]
     poset_edges = P.cover_relations()
-    rel_to_vec = lambda x: add_k_i(add_k_i(zero_vec, x[0], 1), x[1], -1)
+    rel_to_vec = lambda x: add_k_i(add_k_i(zero_vec, x[0] + 1, 1), x[1] + 1, -1)
     relations += map(rel_to_vec, poset_edges)
     
     Poly = _Polyhedron(ieqs=relations)

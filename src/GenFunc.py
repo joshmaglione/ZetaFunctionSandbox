@@ -266,7 +266,8 @@ def _format(Z, denom=None, num_fact=False):
         denom_str = None
     
     # If there is a prescribed denominator, make sure we can handle it.
-    if denom != None:
+    given_denom = denom != None
+    if given_denom:
         Q = denom/d
         if not Q in P: 
             raise ValueError("Expected the denominator to divide the prescribed denominator.")
@@ -278,8 +279,12 @@ def _format(Z, denom=None, num_fact=False):
     # where M is monomial, and second is to format the numerator. 
     # Step 1: denominator
     data = _product_of_fin_geo(denom)
-    clean_data = _clean_denom_data(denom, data)
-    # clean_data = data
+    # If the denominator was prescribed, then we need to make sure we still 
+    # match it
+    if given_denom:
+        clean_data = _clean_denom_data(denom, data)
+    else:
+        clean_data = data
     denom_facts = clean_data[1]
     numer_facts = n.factor_list() + clean_data[0]
 
@@ -360,12 +365,15 @@ def _TeX_output(F,
     else:
         latex_str = "\\begin{align*}\n"
     if LHS == "":
-        latex_str += "  Z("
+        latex_str += "  Z"
     else:
-        latex_str += "  " + LHS + "("
-    for x in F._vars:
-        latex_str += str(x) + ", "
-    latex_str = latex_str[:-2] + ") &= "
+        latex_str += "  " + LHS
+    if len(F._vars) > 0:
+        latex_str += "("
+        for x in F._vars:
+            latex_str += str(x) + ", "
+        latex_str = latex_str[:-2] + ")"
+    latex_str += " &= "
     express = "\\dfrac{" 
     
     # Determine if we need to break it up into multiple lines.
