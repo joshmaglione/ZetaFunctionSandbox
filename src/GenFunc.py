@@ -344,7 +344,7 @@ def _TeX_output(F,
     formatted=True, 
     LHS="", 
     numbered=False, 
-    chars_per_line=60, 
+    chars_per_line=80, 
     expression=False):
 
     if formatted:
@@ -483,7 +483,7 @@ class GenFunc():
         self._fdenom = d
         return self
 
-    def latex(self, formatted=True, LHS="", numbered=False, chars_per_line=60, expression=False):
+    def latex(self, formatted=True, LHS="", numbered=False, chars_per_line=80, expression=False):
         # Type checking
         if not isinstance(formatted, bool):
             raise TypeError("Expected 'formatted' to be a boolean.")
