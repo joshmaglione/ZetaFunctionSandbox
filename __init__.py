@@ -10,3 +10,4 @@ from src.ThinReps import *
 from src.ZetaFormat import *
 from src.combinProps import *
 from src.MajDist import *
+from src.ConeConditions import *

@@ -345,7 +345,8 @@ def _TeX_output(F,
     LHS="", 
     numbered=False, 
     chars_per_line=80, 
-    expression=False):
+    expression=False,
+    print_out=True):
 
     if formatted:
         if F._fnumer == None:
@@ -379,15 +380,16 @@ def _TeX_output(F,
     # Determine if we need to break it up into multiple lines.
     lines = _ceil(len(numer_str)/chars_per_line)
     ind = 0
-    for k in range(lines):
-        p_ind = numer_str[ind:(k+1)*chars_per_line].rfind("+")
-        m_ind = numer_str[ind:(k+1)*chars_per_line].rfind("-")
-        if p_ind > m_ind:
-            express += numer_str[ind:ind+p_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
-            ind += p_ind+2
-        else:
-            express += numer_str[ind:ind+m_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
-            ind += m_ind
+    if lines > 1:
+        for k in range(lines):
+            p_ind = numer_str[ind:(k+1)*chars_per_line].rfind("+")
+            m_ind = numer_str[ind:(k+1)*chars_per_line].rfind("-")
+            if p_ind > m_ind:
+                express += numer_str[ind:ind+p_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
+                ind += p_ind+2
+            else:
+                express += numer_str[ind:ind+m_ind-1] + "}{" + denom_str + "} \\\\\n  &\\quad + \\dfrac{"
+                ind += m_ind
     express += numer_str[ind:] + "}{" + denom_str + "}"
 
     if expression:
@@ -399,7 +401,11 @@ def _TeX_output(F,
         latex_str += "\n\\end{aligned}\\end{equation}\n"
     else:
         latex_str += "\n\\end{align*}\n"
-    return latex_str
+
+    if print_out:
+        print latex_str[:-1]
+    else:
+        return latex_str
 
 
 # A nicely formatted printing function. Inputs can be symbolic or strings.
@@ -445,7 +451,9 @@ class GenFunc():
         if isinstance(other, GenFunc):
             if self._fdenom != None and self._fdenom == other._fdenom:
                 F = GenFunc(self._numer/self._denom + other._numer/other._denom)
-                return F.format(denominator=_SR(self._fdenom.replace(')(', ')*(')))
+                return F.format(denominator=_SR(
+                    self._fdenom.replace('(', '*(')[1:]
+                ))
             other = other._numer / other._denom
         return GenFunc(self._numer / self._denom + other)
 
@@ -533,6 +541,9 @@ class GenFunc():
 
     def symbolic(self):
         return self._numer / self._denom
+
+    def taylor(self, t, a, n):
+        return (self._numer / self._denom).taylor(t, a, n)
 
     def variables(self):
         return self._vars
