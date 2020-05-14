@@ -433,8 +433,7 @@ class GenFunc():
         else:
             self._numer = args[0]
             self._denom = args[1]
-        self._vars = tuple(set(self._numer.variables()).union(
-            set(self._denom.variables())))
+        self._vars = (self._numer/self._denom).variables()
         self._fnumer = None
         self._fdenom = None
 
