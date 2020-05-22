@@ -11,3 +11,4 @@ from src.ZetaFormat import *
 from src.combinProps import *
 from src.MajDist import *
 from src.ConeConditions import *
+from src.HPA import *
