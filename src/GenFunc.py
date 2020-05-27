@@ -359,7 +359,7 @@ def _TeX_output(F,
         den = F._denom
     denom_str = _TeX_exp(str(den).replace("*", " "))
     if len(denom_str) > chars_per_line:
-        print "Warning: length of denominator exceeds chars_per_line."
+        print("Warning: length of denominator exceeds chars_per_line.")
     numer_str = _TeX_exp(str(num).replace("*", " "))
     if numbered:
         latex_str = "\\begin{equation}\\begin{aligned}\n"
@@ -403,7 +403,7 @@ def _TeX_output(F,
         latex_str += "\n\\end{align*}\n"
 
     if print_out:
-        print latex_str[:-1]
+        print(latex_str[:-1])
     else:
         return latex_str
 

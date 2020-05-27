@@ -42,7 +42,7 @@ def NonnegativityData(Z):
     # First test: check everything is nonnegative
     is_neg = lambda x: x[0] < 0
     if any(filter(is_neg, coeffs)):
-        print "Numerator is not nonnegative."
+        print("Numerator is not nonnegative.")
         return None
 
     # Our record

@@ -75,8 +75,8 @@ def _eval_relations(relations, verbose, variable, sub):
 
     # In case the user wants to verify the matrix.
     if verbose:
-        print "The matrix corresponding to the polyhedral cone:"
-        print "%s" % (_Matrix(relations))
+        print("The matrix corresponding to the polyhedral cone:")
+        print("%s" % (_Matrix(relations)))
     
     # Define the polyhedral cone and corresponding polynomial ring.
     P = _Polyhedron(ieqs=relations)
@@ -115,7 +115,7 @@ def ThinZeta_An(word, leq_char="0", verbose=False, variable='t', sub=True):
     if isinstance(word, int) or isinstance(word, _Sage_int):
         word = str(word.binary()[1:])[::-1]
         if verbose:
-            print word
+            print(word)
     
     _input_check(word, leq_char, verbose, variable, sub)
     relations = _build_ineqs(word, leq_char)
@@ -128,7 +128,7 @@ def ThinZeta_Dn(word, leq_char="0", verbose=False, variable='t', sub=True):
     if isinstance(word, int) or isinstance(word, _Sage_int):
         word = str(word.binary()[1:])[::-1]
         if verbose:
-            print word
+            print(word)
     # If this should be type An instead, we use that function instead.
     if len(word) <= 2:
         return ThinZeta_An(word, leq_char=leq_char, verbose=verbose, variable=variable, sub=sub)
@@ -142,7 +142,7 @@ def ThinZeta_En(word, leq_char="0", verbose=False, variable='t', sub=True):
     if isinstance(word, int) or isinstance(word, _Sage_int):
         word = str(word.binary()[1:])[::-1]
         if verbose:
-            print word
+            print(word)
     # If this should be type An instead, we use that function instead.
     if len(word) <= 4:
         return ThinZeta_An(word, leq_char=leq_char, verbose=verbose, variable=variable, sub=sub)
